@@ -18,12 +18,12 @@ begin
     from
         routes_permissions rp
     where
-        and rp.route = _url
+        rp.route = _url
         and rp.method = _method
-        and rp.active = true
+        and rp.active = true;
     
     if _exclude then
-        _permission = false;
+        _permission = true;
     else
         select
             count(*) > 0
@@ -33,7 +33,7 @@ begin
         where
             ugp.user_group_id = _user_group_id
             and ugp.permission_id = _permission_id
-            and ugp.active = true
+            and ugp.active = true;
     end if;
 end;
 $$;

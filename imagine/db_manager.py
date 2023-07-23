@@ -1,5 +1,7 @@
 import json
+from datetime import datetime
 from fastapi.exceptions import HTTPException
+from fastapi.encoders import jsonable_encoder
 
 # Redis
 from redis import Redis
@@ -65,8 +67,8 @@ class RedisManager:
             value (str): value
             expire (int, optional): expire time in minutes. Defaults to None.
         """
-        if isinstance(value, dict):
-            value = json.dumps(value)
+        if isinstance(value, dict) or isinstance(value, list):
+            value = json.dumps(value, default=jsonable_encoder)
 
         self.conn.set(key, value)
         self.conn.expire(key, expire * 60)

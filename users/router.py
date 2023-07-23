@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from users.views.users import prouter as users_router
+from users.views.users import router as users_router
 
 
 api_router = APIRouter()

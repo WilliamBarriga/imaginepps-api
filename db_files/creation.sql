@@ -69,7 +69,12 @@ INSERT INTO routes_permissions (route,"method","exclude") VALUES
 	 ('/auth/me','OPTIONS',true),
 	 ('auth/signup','OPTIONS',true),
 	 ('auth/login','OPTIONS',true),
-	 ('auth/validate','OPTIONS',true);
+	 ('auth/validate','OPTIONS',true)
+     ('/users','GET',true),
+	 ('/users','OPTIONS',true),
+     ('/users/#','GET',true),
+     ('/users/#','PATCH',true),
+     ('/users/#','OPTIONS',true),
 
 
 create table user_groups_routes_permissions (

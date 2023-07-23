@@ -1,39 +1,100 @@
-from fastapi import APIRouter, status, Response, Body, Query
+from typing import Annotated
+
+# FastAPI
+from fastapi import APIRouter, Body, Depends, status, Request
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import HTTPException
+from fastapi.encoders import jsonable_encoder
 
-prouter = APIRouter()
+# Common
+from imagine.commons import general_get
 
-from datetime import datetime
-from pydantic import BaseModel, Field
+# auth_interface
+from auth.views.auth import get_current_user
 
+# Schemas
+from users.schemas.users import BaseUser, User, UserPatch
 
-class Users(BaseModel):
-    id: int
-    username: str
-    email: str
+# DB
+from imagine.db_manager import db, get_rd, RedisManager
 
-
-users = [
-    {"id": 1, "username": "johndoe", "email": "johndoe@mail.com"},
-    {"id": 2, "username": "janedoe", "email": "janedoe@mail.com"},
-]
-
-
-@prouter.get("/users", status_code=status.HTTP_200_OK)
-def get_users():
-    return users
+router = APIRouter(dependencies=[Depends(get_current_user)])
 
 
-@prouter.post("/users", status_code=status.HTTP_201_CREATED)
-def create_user(user: Users = Body(...)):
-    users.append(user.dict())
-    return JSONResponse(status_code=status.HTTP_201_CREATED, content=user.dict())
+@router.get("/", status_code=status.HTTP_200_OK, response_model=list[BaseUser])
+def get_all_users(
+    cache: Annotated[RedisManager, Depends(get_rd)],
+    pagination: Annotated[dict, Depends(general_get)],
+) -> JSONResponse:
+    """Get all users
+
+    Args:
+        request (Request): request
+
+    Returns:
+        JSONResponse: users
+    """
+    cache_key = f"users:{pagination['q']}:{pagination['page']}:{pagination['size']}"
+    if (cache_data := cache.get(cache_key)) is not None:
+        return JSONResponse(cache_data)
+
+    users = db.execute_sp(
+        "imfun_get_users",
+        f"'{pagination['q']}'::varchar" if pagination["q"] else "null",
+        f"{pagination['page']}::int",
+        f"{pagination['size']}::int",
+    )
+    cache.create(cache_key, users, 5)
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content=jsonable_encoder(users))
 
 
-@prouter.get("/users/{paquito_id}", status_code=status.HTTP_200_OK)
-def get_user(paquito_id: int):
-    for user in users:
-        if user["id"] == paquito_id:
-            return user
-    return {"message": "User not found."}
+@router.get("/{user_id}", status_code=status.HTTP_200_OK, response_model=User)
+def get_user(
+    cache: Annotated[RedisManager, Depends(get_rd)],
+    user_id: str,
+) -> JSONResponse:
+    """Get user
 
+    Args:
+        request (Request): request
+
+    Returns:
+        JSONResponse: user
+    """
+    cache_key = f"user:{user_id}"
+    if (cache_data := cache.get(cache_key)) is not None:
+        return JSONResponse(cache_data)
+
+    user = db.execute_sp("imfun_get_user", f"'{user_id}'::uuid")
+    cache.create(cache_key, user, 5)
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content=jsonable_encoder(user))
+
+
+@router.patch("/{user_id}", status_code=status.HTTP_200_OK, response_model=User)
+def update_user(
+    cache: Annotated[RedisManager, Depends(get_rd)],
+    user_id: str,
+    user: UserPatch,
+) -> JSONResponse:
+    """Update user
+
+    Args:
+        request (Request): request
+
+    Returns:
+        JSONResponse: user
+    """
+    cache.delete(f"users:*")
+    cache.delete(f"user:{user_id}")
+
+    user = db.execute_sp(
+        "imfun_update_user",
+        f"'{user_id}'::uuid",
+        f"'{user.name}'::varchar" if user.name else "null::varchar",
+        f"'{user.email}'::varchar" if user.email else "null::varchar",
+        f"'{user.group_id}'::int" if user.group_id else "null::int",
+    )
+
+    return JSONResponse(status_code=status.HTTP_200_OK, content=jsonable_encoder(user))

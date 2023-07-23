@@ -185,6 +185,10 @@ class LogsMiddleware(BaseHTTPMiddleware):
         return url
 
     def _validate_permission(self, user_dict: dict, url: str, method: str) -> bool:
+        
+        if url in ["/docs", "/redoc", "/openapi.json"]:
+            return True
+        
         user_group = user_dict.get("group", {}).get("id", None)
 
         rd_key = f"permission:{user_group}:{url}:{method}"
@@ -196,7 +200,7 @@ class LogsMiddleware(BaseHTTPMiddleware):
 
         permission = db.execute_sp(
             "imfun_get_user_permissions",
-            f"{user_group}::int8",
+            f"{user_group}::int8" if user_group else "NULL::int8",
             f"'{url}'::varchar",
             f"'{method}'::varchar",
         )['permission']

@@ -5,7 +5,7 @@ create or replace function imfun_signup_user(
     _email varchar(255),
     _password varchar(255),
     _group_id bigint,
-    out _user_id bigint
+    out _user_id uuid
 ) 
 language plpgsql
 as $$

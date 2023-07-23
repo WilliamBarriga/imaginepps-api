@@ -10,7 +10,7 @@ from users.router import api_router as users_router
 from auth.router import api_router as auth_router
 
 # db
-from imagine.db_manager import db
+from imagine.db_manager import db, rd
 
 # Middleware
 from imagine.middleware import LogsMiddleware
@@ -23,13 +23,13 @@ app = FastAPI(
 )
 
 
-# app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=config("CORS_ORIGINS", cast=Csv(), default="*"),
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-#     )
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=config("CORS_ORIGINS", cast=Csv(), default="*"),
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.add_middleware(LogsMiddleware)
 
@@ -41,6 +41,9 @@ def startup_event():
     print("connecting to db...", flush=True)
     db.fetch_one("SELECT 1")
     print("connected to db...", flush=True)
+    print("connecting to redis...", flush=True)
+    rd.conn.ping()
+    print("connected to redis...", flush=True)
     print("*" * 20, flush=True)
 
 
@@ -49,6 +52,7 @@ def shutdown_event():
     print("*" * 20, flush=True)
     print("Shutting down...", flush=True)
     print("*" * 20, flush=True)
+
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 

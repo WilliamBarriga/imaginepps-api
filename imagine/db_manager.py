@@ -1,4 +1,9 @@
+import json
 from fastapi.exceptions import HTTPException
+
+# Redis
+from redis import Redis
+from redis.exceptions import ConnectionError
 
 # Psycopg2
 import psycopg2
@@ -7,6 +12,73 @@ from psycopg2.errors import InFailedSqlTransaction
 
 # Env
 from decouple import config
+
+
+class RedisManager:
+    def __init__(self) -> None:
+        self.conn = self.connect()
+
+    def connect(self) -> Redis:
+        """Connect to Redis"""
+        conn = Redis(
+            host=config("REDIS_HOST"),
+            port=config("REDIS_PORT"),
+            password=config("REDIS_PASS", default=None),
+            db=config("REDIS_DB"),
+            decode_responses=True,
+        )
+        return conn
+
+    def _check_connection(func):
+        def wrapper(self, *args, **kwargs):
+            try:
+                self.conn.ping()
+            except ConnectionError:
+                self.conn = self._connect()
+            return func(self, *args, **kwargs)
+
+        return wrapper
+
+    @_check_connection
+    def get(self, key: str) -> str | dict | list | None:
+        """get the value of the key
+
+        Args:
+            key (str): key
+
+        Returns:
+            value (str): value
+        """
+        data = self.conn.get(key)
+        if data:
+            try:
+                return json.loads(data)
+            except json.decoder.JSONDecodeError:
+                return self.conn.get(key)
+
+    @_check_connection
+    def create(self, key: str, value: str | dict, expire: int = 5) -> None:
+        """set the value of the key
+
+        Args:
+            key (str): key
+            value (str): value
+            expire (int, optional): expire time in minutes. Defaults to None.
+        """
+        if isinstance(value, dict):
+            value = json.dumps(value)
+
+        self.conn.set(key, value)
+        self.conn.expire(key, expire * 60)
+
+    @_check_connection
+    def delete(self, key: str) -> None:
+        """delete the key
+
+        Args:
+            key (str): key
+        """
+        self.conn.delete(key)
 
 
 class DBManager:
@@ -102,4 +174,10 @@ class DBManager:
             return data[0]
         return data
 
+
 db = DBManager()
+rd = RedisManager()
+
+
+def get_rd() -> RedisManager:
+    return rd

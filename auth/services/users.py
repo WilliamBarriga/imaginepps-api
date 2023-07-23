@@ -95,7 +95,6 @@ def get_password_hash(password: str) -> str:
 
 
 def create_user(user: AuthUserCreate, group_id: int) -> int:
-    # select exists emailk
     validate_user = db.fetch_one(
         f"select u.id from users u where u.email = '{user.email}'"
     )

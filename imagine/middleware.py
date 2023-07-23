@@ -1,11 +1,15 @@
 import time
+import re
 import json
 from json import JSONDecodeError
+from uuid import UUID
+from jose import jwt
 from starlette.middleware.base import BaseHTTPMiddleware, DispatchFunction
 from fastapi import FastAPI, Response, Request
 from starlette.types import Message
-from imagine.db_manager import db
+from imagine.db_manager import db, rd
 from auth.views.auth import get_current_user
+from decouple import config
 
 
 class AsyncIteratorWrapper:
@@ -34,7 +38,9 @@ class LogsMiddleware(BaseHTTPMiddleware):
         request_dict = await self._log_request(request)
         user_dict, user_id = self._log_user(request)
 
-        self._create_log(request_dict, response_dict, user_dict, user_id)
+        url = self._url_convertion(request.url.path)
+
+        self._create_log(request_dict, response_dict, user_dict, url, user_id)
 
         return response
 
@@ -61,13 +67,17 @@ class LogsMiddleware(BaseHTTPMiddleware):
 
         token = token.split(" ")[1]
         try:
-            user_data = get_current_user(token)
-        except:
+            payload = jwt.decode(token, config("SECRET_KEY"), algorithms=["HS256"])
+            email: str = payload.get("email")
+            if email is None:
+                return {}, None
+            if (cache_data := rd.get(f"user_data:{email}")) is not None:
+                return cache_data, cache_data.get("id")
+            else:
+                user_data = db.execute_sp("imfun_get_user_data", f"'{email}'::varchar")
+                return user_data, user_data.get("id")
+        except Exception as e:
             return {}, None
-        user_dict = user_data.dict()
-        if "password" in user_dict:
-            user_dict.pop("password")
-        return user_dict, user_data.id
 
     async def _log_request(self, request: Request) -> str:
         path = request.url.path
@@ -124,14 +134,42 @@ class LogsMiddleware(BaseHTTPMiddleware):
 
         return response, response_logging
 
-    def _create_log(self, request_log, response_log, user_log, user_id):
+    def _create_log(self, request_log, response_log, user_log, url, user_id):
         try:
             db.execute_sp(
                 "imfun_create_log",
-                f"{user_id}::int8" if user_id else "NULL::int8",
+                f"'{user_id}'::uuid" if user_id else "NULL::uuid",
                 f"'{json.dumps(request_log)}'::jsonb",
                 f"'{json.dumps(response_log)}'::jsonb",
                 f"'{json.dumps(user_log)}'::jsonb",
+                f"'{url}'::varchar",
             )
         except Exception as e:
             print(e, flush=True)
+
+    def _valid_uuid(self, string):
+        try:
+            UUID(string)
+            return True
+        except ValueError:
+            return False
+
+    def _url_convertion(self, url: str) -> str:
+        """Convert url to database format
+
+        Args:
+            url (str): Url to convert
+
+        Returns:
+            str: Converted url
+        """
+
+        url = re.split("[?]+", url)[0]
+        url = re.split("[/]+", url)
+        for i, item in enumerate(url):
+            if item.isnumeric():
+                url[i] = "#"
+            elif self._valid_uuid(item):
+                url[i] = "#"
+        url = "/".join(url)
+        return url

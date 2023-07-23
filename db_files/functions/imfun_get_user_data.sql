@@ -3,7 +3,7 @@ drop function if exists imfun_get_user_data;
 create or replace function imfun_get_user_data(
     _user_email varchar
 ) returns table (
-    id int8,
+    id uuid,
     name varchar,
     email varchar,
     active boolean,

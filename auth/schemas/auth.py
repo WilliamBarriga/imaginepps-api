@@ -10,7 +10,7 @@ class AuthUserCreate(AuthUserBase):
     password: str
 
 class AuthUser(AuthUserBase):
-    id: int
+    id: str # uuid
     group_id: int
 
 class UserGroup(BaseModel):
@@ -18,7 +18,7 @@ class UserGroup(BaseModel):
     name: str
 
 class UserData(BaseModel):
-    id: int
+    id: str # uuid
     name: str
     email: str
     active: bool

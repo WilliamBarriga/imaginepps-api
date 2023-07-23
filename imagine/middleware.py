@@ -34,11 +34,14 @@ class LogsMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next) -> Response:
         await self.set_body(request)
-        response, response_dict = await self._log_response(call_next, request)
-        request_dict = await self._log_request(request)
         user_dict, user_id = self._log_user(request)
-
         url = self._url_convertion(request.url.path)
+        method = request.method
+
+        response, response_dict = await self._log_response(
+            call_next, request, user_dict, url, method
+        )
+        request_dict = await self._log_request(request)
 
         self._create_log(request_dict, response_dict, user_dict, url, user_id)
 
@@ -108,10 +111,26 @@ class LogsMiddleware(BaseHTTPMiddleware):
 
         return request_logging
 
-    async def _log_response(self, call_next, request: Request) -> Response:
+    async def _log_response(
+        self, call_next, request: Request, user_dict: dict, url: str, method: str
+    ) -> Response:
         start_time = time.perf_counter()
 
-        response: Response = await call_next(request)
+        validate = self._validate_permission(user_dict, url, method)
+        if not validate:
+            resp_body = "Forbidden"
+            response = Response(status_code=403, content=resp_body)
+        else:
+            response: Response = await call_next(request)
+            resp_body = [
+                section async for section in response.__dict__["body_iterator"]
+            ]
+            response.__setattr__("body_iterator", AsyncIteratorWrapper(resp_body))
+
+            try:
+                resp_body = json.loads(resp_body[0].decode())
+            except:
+                resp_body = str(resp_body)
 
         finish_time = time.perf_counter()
 
@@ -121,15 +140,6 @@ class LogsMiddleware(BaseHTTPMiddleware):
             "status_code": response.status_code,
             "time_taken": f"{execution_time:0.4f}s",
         }
-
-        resp_body = [section async for section in response.__dict__["body_iterator"]]
-        response.__setattr__("body_iterator", AsyncIteratorWrapper(resp_body))
-
-        try:
-            resp_body = json.loads(resp_body[0].decode())
-        except:
-            resp_body = str(resp_body)
-
         response_logging["body"] = resp_body
 
         return response, response_logging
@@ -173,3 +183,24 @@ class LogsMiddleware(BaseHTTPMiddleware):
                 url[i] = "#"
         url = "/".join(url)
         return url
+
+    def _validate_permission(self, user_dict: dict, url: str, method: str) -> bool:
+        user_group = user_dict.get("group", {}).get("id", None)
+
+        rd_key = f"permission:{user_group}:{url}:{method}"
+        
+        rd_permission = rd.get(rd_key)
+        
+        if rd_permission is not None:
+            return rd_permission == "True"
+
+        permission = db.execute_sp(
+            "imfun_get_user_permissions",
+            f"{user_group}::int8",
+            f"'{url}'::varchar",
+            f"'{method}'::varchar",
+        )['permission']
+        
+        rd.create(rd_key, str(permission), 60)
+        
+        return permission

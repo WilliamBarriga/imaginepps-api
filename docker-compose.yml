@@ -1,0 +1,40 @@
+version: "3.8"
+services:
+  app:
+    build: .
+    image: imagine_back
+    container_name: imagine_back
+    ports:
+      - 8000:8000
+    volumes:
+      - ./:/app
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      - db
+      - redis
+
+  redis:
+    image: redis:alpine
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 30s
+        max_attempts: 3
+        window: 60s
+    container_name: imagine_redis
+    restart: always
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - 6379:6379
+
+  db:
+    image: postgres:14-alpine
+    container_name: imagine_db
+    restart: always
+    environment:
+      # POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - 5432:5432

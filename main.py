@@ -1,3 +1,5 @@
+import os
+
 # Starlette
 from starlette.middleware.cors import CORSMiddleware
 
@@ -22,6 +24,11 @@ from decouple import config, Csv
 app = FastAPI(
     title="Imagine API",
 )
+try:
+    file = os.path.dirname(__file__) + "/db_files/creation.sql"
+    db.create_db(file)
+except:
+    pass
 
 
 app.add_middleware(

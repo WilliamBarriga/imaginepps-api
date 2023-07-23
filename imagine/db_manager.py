@@ -1,3 +1,4 @@
+import os
 import json
 from datetime import datetime
 from fastapi.exceptions import HTTPException
@@ -176,6 +177,19 @@ class DBManager:
         if len(data) == 1:
             return data[0]
         return data
+    
+    def create_db(self, file):
+        cur = self.conn.cursor()
+
+        try:
+            with open(file, "r") as f:
+                sql = f.read()
+                cur.execute(sql)
+                self.conn.commit()
+        except Exception as e:
+            print(e, flush=True)
+            self.conn.rollback()
+        cur.close()
 
 
 db = DBManager()

@@ -31,19 +31,18 @@ begin
         ) tags,
         count(nl.id) total_likes,
         jsonb_agg(
-            select 
+            DISTINCT
             jsonb_build_object(
                 'id', u2.id,
                 'name', u2."name"
             )
-            from users u2
-            where u2.id = nl.user_id
         ) likes
     from notes n
     join users u on u.id = n.user_id
     left join notes_tags nt on n.id = nt.note_id
     left join tags t on nt.tag_id = t.id
     left join notes_likes nl on nl.note_id = n.id
+    left join users u2 on nl.user_id = u2.id
     where
         n.active = true
         and n.id = _id

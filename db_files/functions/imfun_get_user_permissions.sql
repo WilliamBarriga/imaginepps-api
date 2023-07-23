@@ -32,7 +32,7 @@ begin
             user_groups_routes_permissions ugp
         where
             ugp.user_group_id = _user_group_id
-            and ugp.permission_id = _permission_id
+            and ugp.route_permission_id = _permission_id
             and ugp.active = true;
     end if;
 end;

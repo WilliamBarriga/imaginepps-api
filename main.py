@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 # Routers
 from users.router import api_router as users_router
 from auth.router import api_router as auth_router
+from notes.router import api_router as notes_router
 
 # db
 from imagine.db_manager import db, rd
@@ -59,3 +60,4 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
 
 app.include_router(users_router)
 app.include_router(auth_router)
+app.include_router(notes_router)

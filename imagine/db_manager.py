@@ -37,6 +37,7 @@ class RedisManager:
                 self.conn.ping()
             except ConnectionError:
                 self.conn = self._connect()
+            return
             return func(self, *args, **kwargs)
 
         return wrapper

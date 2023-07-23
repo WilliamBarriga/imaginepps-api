@@ -7,8 +7,8 @@ returns table(
     id uuid,
     name varchar,
     email varchar,
-    updated_at timestamptz
-    group jsonb
+    updated_at timestamptz,
+    "group" jsonb
 )
 language plpgsql
 as $$

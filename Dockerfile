@@ -14,4 +14,4 @@ RUN chmod +x /.env
 RUN python db_creation.py
 
 EXPOSE 8000
-CMD gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 --max-requests 100 --access-logfile - --error-logfile - --log-level info
+CMD gunicorn main:app -w 1 -k uvicorn.workers.UvicornWorker -b 0.0.0.0:8000 --max-requests 100 --access-logfile - --error-logfile - --log-level info
